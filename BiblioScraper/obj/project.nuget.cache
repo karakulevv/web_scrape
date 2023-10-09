@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "dRrt9opeLNbuVYyDUXMW+ShLAoPzoPUTeXAeWwj4SOktoH9iBXy3n2yAJVetG1Fv8mD82r4FIo65Kf4PzKpEPg==",
+  "success": true,
+  "projectFilePath": "C:\\GIT\\Other\\Web Scraping\\BiblioScraper\\BiblioScraper\\BiblioScraper.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\vasil.karakulev\\.nuget\\packages\\htmlagilitypack\\1.11.54\\htmlagilitypack.1.11.54.nupkg.sha512",
+    "C:\\Users\\vasil.karakulev\\.nuget\\packages\\microsoft.extensions.dependencyinjection\\7.0.0\\microsoft.extensions.dependencyinjection.7.0.0.nupkg.sha512",
+    "C:\\Users\\vasil.karakulev\\.nuget\\packages\\microsoft.extensions.dependencyinjection.abstractions\\7.0.0\\microsoft.extensions.dependencyinjection.abstractions.7.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
