@@ -1,31 +1,27 @@
 ﻿using BiblioScraper.Services;
-using BiblioScraper.Services.Interfaces;
 using HtmlAgilityPack;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BiblioScraper
 {
-    public class Program
+    public static class Program
     {
         private static readonly string baseUrl = "https://books.toscrape.com/";
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            var serviceProvider = new ServiceCollection()
-                .AddScoped<IScrapingService, ScrapingService>()
-                .BuildServiceProvider();
+            var httpClient = new HttpClient();
 
-            using (var scope = serviceProvider.CreateScope())
-            {
-                var scrapeService = scope.ServiceProvider.GetRequiredService<IScrapingService>();
+            var scrapeService = new ScrapingService(httpClient);
 
-                var htmlDocuments = new List<HtmlDocument>();
-                scrapeService.ReadPagesAsync(baseUrl, 1, htmlDocuments).Wait();
+            var htmlDocuments = new List<HtmlDocument>();
 
-                scrapeService.SaveHtmlInParallel(htmlDocuments).Wait();
+            //process 1
+            await scrapeService.ReadPagesAsync(baseUrl, 1, htmlDocuments);
 
-                scrapeService.SaveImagesInParallel(htmlDocuments).Wait();
-            }
+            //process 2
+            await scrapeService.SaveHtmlInParallel(htmlDocuments);
+
+            //process 3
+            await scrapeService.SaveImagesInParallel(htmlDocuments);            
         }
     }
-
 }
