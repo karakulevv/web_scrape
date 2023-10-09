@@ -124,7 +124,7 @@ namespace BiblioScraper.Services
                                         var imageFilePath = StringHelpers.GetImageFilePath(baseUrl, outputPath, imageUrl);
 
                                         var imageBytes = await _httpClient.GetByteArrayAsync(fullPath);
-                                        await SaveContentToFileAsync(Convert.ToBase64String(imageBytes), imageFilePath);
+                                        await SaveContentToFileAsync(imageBytes, imageFilePath);
                                     }
                                 }
                                 catch (Exception ex)
@@ -146,7 +146,7 @@ namespace BiblioScraper.Services
                 Console.WriteLine("\nCRITICAL ERROR!!!!!!!!");
                 Console.WriteLine(ex.Message);
             }
-        }        
+        }
 
         /// <summary>
         /// Return next page url if next page exists
@@ -180,7 +180,7 @@ namespace BiblioScraper.Services
         }
 
         /// <summary>
-        /// Write document content to file path
+        /// Write document string content to file path
         /// </summary>
         /// <param name="content"></param>
         /// <param name="filePath"></param>
@@ -198,6 +198,27 @@ namespace BiblioScraper.Services
                     Console.WriteLine(e.Message);
                 }
             }
-        }        
+        }
+
+        /// <summary>
+        /// Write document byte content to file path
+        /// </summary>
+        /// <param name="content"></param>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        private async Task SaveContentToFileAsync(byte[] content, string filePath)
+        {
+            using (var streamWriter = new FileStream(filePath, FileMode.Create))
+            {
+                try
+                {
+                    await streamWriter.WriteAsync(content, 0, content.Length);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+            }
+        }
     }
 }
