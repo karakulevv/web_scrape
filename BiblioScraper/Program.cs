@@ -22,7 +22,7 @@ namespace BiblioScraper
             await scrapeService.SaveHtmlInParallel(htmlDocuments, outputPath);
 
             //process 3
-            await scrapeService.SaveImagesInParallel(htmlDocuments);            
+            await scrapeService.SaveImagesInParallel(baseUrl, htmlDocuments, outputPath);
         }
     }
 }

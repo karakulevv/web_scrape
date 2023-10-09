@@ -19,13 +19,11 @@ namespace BiblioScraper.Services
         /// <param name="baseUrl"></param>
         /// <param name="currentPage"></param>
         /// <param name="htmlDocuments"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
         public async Task ReadPagesAsync(string baseUrl, int currentPage, List<HtmlDocument> htmlDocuments, string nextPageUrl = null)
         {
             try
             {
-                var fullUrl = GetUrl(baseUrl, nextPageUrl);
+                var fullUrl = StringHelpers.GetUrl(baseUrl, nextPageUrl);
                 string htmlContent = await _httpClient.GetStringAsync(fullUrl);
 
                 var htmlDocument = new HtmlDocument();
@@ -48,8 +46,6 @@ namespace BiblioScraper.Services
         /// Save html documents in parallel
         /// </summary>
         /// <param name="htmlDocuments"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
         public async Task SaveHtmlInParallel(List<HtmlDocument> htmlDocuments, string outputPath)
         {
             EnsureOutputExists(outputPath);
@@ -70,8 +66,7 @@ namespace BiblioScraper.Services
                             string fileName = StringHelpers.GenerateUniqueFileName(page);
                             string filePath = Path.Combine(outputPath, fileName);
 
-                            // Save HTML content to file
-                            await SaveHtmlDocumentToFile(page, filePath);
+                            await SaveContentToFileAsync(page.DocumentNode.OuterHtml, filePath);
                         }
                         catch (Exception ex)
                         {
@@ -90,27 +85,74 @@ namespace BiblioScraper.Services
             {
                 Console.WriteLine("\nCRITICAL ERROR!!!!!!!!");
                 Console.WriteLine(ex.Message);
-            }            
+            }
         }
 
         /// <summary>
-        /// Save images to disk in parallel 
+        /// Save images to disk in parallel
         /// </summary>
+        /// <param name="baseUrl"></param>
         /// <param name="htmlDocuments"></param>
+        /// <param name="outputPath"></param>
         /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        public async Task SaveImagesInParallel(List<HtmlDocument> htmlDocuments)
+        public async Task SaveImagesInParallel(string baseUrl, List<HtmlDocument> htmlDocuments, string outputPath)
         {
-            throw new NotImplementedException();
-        }
+            EnsureOutputExists(outputPath);
 
+            try
+            {
+                using var taskPool = new SemaphoreSlim(5);
+                var tasks = new List<Task>();
+
+                foreach (var htmlDocument in htmlDocuments)
+                {
+                    var imageNodes = htmlDocument.DocumentNode.SelectNodes("//img[@src]");
+                    if (imageNodes != null)
+                    {
+                        foreach (var imageNode in imageNodes)
+                        {
+                            tasks.Add(Task.Run(async () =>
+                            {
+                                await taskPool.WaitAsync();
+
+                                try
+                                {
+                                    var imageUrl = imageNode.GetAttributeValue("src", "");
+                                    if (!string.IsNullOrEmpty(imageUrl))
+                                    {
+                                        var fullPath = string.Concat(baseUrl, imageUrl);
+                                        var imageFilePath = StringHelpers.GetImageFilePath(baseUrl, outputPath, imageUrl);
+
+                                        var imageBytes = await _httpClient.GetByteArrayAsync(fullPath);
+                                        await SaveContentToFileAsync(Convert.ToBase64String(imageBytes), imageFilePath);
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    Console.WriteLine(ex.Message);
+                                }
+                                finally
+                                {
+                                    taskPool.Release();
+                                }
+                            }));
+                        }
+                    }
+                    await Task.WhenAll(tasks);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("\nCRITICAL ERROR!!!!!!!!");
+                Console.WriteLine(ex.Message);
+            }
+        }        
 
         /// <summary>
         /// Return next page url if next page exists
         /// </summary>
         /// <param name="htmlDocument"></param>
         /// <param name="nextPageUrl"></param>
-        /// <returns></returns>
         private bool HasNextPage(HtmlDocument htmlDocument, out string nextPageUrl)
         {
             nextPageUrl = null;
@@ -125,21 +167,9 @@ namespace BiblioScraper.Services
         }
 
         /// <summary>
-        /// Catalog is not present in the button link after 2nd page hence we need to add it manually
+        /// Create directory if non-existing
         /// </summary>
-        /// <param name="baseUrl"></param>
-        /// <param name="nextPageUrl"></param>
-        /// <returns></returns>
-        private string GetUrl(string baseUrl, string nextPageUrl)
-        {
-            if (!string.IsNullOrEmpty(nextPageUrl))
-            {
-                nextPageUrl = nextPageUrl.Contains("catalogue") ? nextPageUrl : "catalogue/" + nextPageUrl;
-            }
-
-            return baseUrl + nextPageUrl;
-        }
-
+        /// <param name="outputPath"></param>
         private void EnsureOutputExists(string outputPath)
         {
             if (!Directory.Exists(outputPath))
@@ -149,19 +179,25 @@ namespace BiblioScraper.Services
             }
         }
 
-        private async Task SaveHtmlDocumentToFile(HtmlDocument htmlDocument, string filePath)
+        /// <summary>
+        /// Write document content to file path
+        /// </summary>
+        /// <param name="content"></param>
+        /// <param name="filePath"></param>
+        /// <returns></returns>
+        private async Task SaveContentToFileAsync(string content, string filePath)
         {
             using (var streamWriter = new StreamWriter(filePath))
             {
                 try
                 {
-                    await streamWriter.WriteAsync(htmlDocument.DocumentNode.OuterHtml);
+                    await streamWriter.WriteAsync(content);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e.Message.ToString());
+                    Console.WriteLine(e.Message);
                 }
             }
-        }
+        }        
     }
 }
