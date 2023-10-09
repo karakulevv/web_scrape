@@ -1,4 +1,5 @@
-﻿using BiblioScraper.Services.Interfaces;
+﻿using BiblioScraper.Helpers;
+using BiblioScraper.Services.Interfaces;
 using HtmlAgilityPack;
 
 namespace BiblioScraper.Services
@@ -6,12 +7,10 @@ namespace BiblioScraper.Services
     public class ScrapingService : IScrapingService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _outputPath;
 
         public ScrapingService(HttpClient httpClient)
         {
             _httpClient = httpClient;
-            _outputPath = Directory.GetCurrentDirectory().Replace("\\bin\\Debug\\net6.0", "\\OutputFiles\\");
         }
 
         /// <summary>
@@ -41,7 +40,7 @@ namespace BiblioScraper.Services
             }
             catch (Exception ex)
             {
-                throw new Exception("Exception occurred during page scraping.", ex);
+                Console.WriteLine("Exception occurred during page scraping.\n", ex);
             }
         }
 
@@ -51,9 +50,47 @@ namespace BiblioScraper.Services
         /// <param name="htmlDocuments"></param>
         /// <returns></returns>
         /// <exception cref="NotImplementedException"></exception>
-        public async Task SaveHtmlInParallel(List<HtmlDocument> htmlDocuments)
+        public async Task SaveHtmlInParallel(List<HtmlDocument> htmlDocuments, string outputPath)
         {
-            throw new NotImplementedException();
+            EnsureOutputExists(outputPath);
+
+            try
+            {
+                using var taskPool = new SemaphoreSlim(5); //5 parallel tasks
+                var tasks = new List<Task>();
+
+                foreach (var page in htmlDocuments)
+                {
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        await taskPool.WaitAsync();
+
+                        try
+                        {
+                            string fileName = StringHelpers.GenerateUniqueFileName(page);
+                            string filePath = Path.Combine(outputPath, fileName);
+
+                            // Save HTML content to file
+                            await SaveHtmlDocumentToFile(page, filePath);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine(ex.Message);
+                        }
+                        finally
+                        {
+                            taskPool.Release();
+                        }
+                    }));
+                }
+
+                await Task.WhenAll(tasks);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("\nCRITICAL ERROR!!!!!!!!");
+                Console.WriteLine(ex.Message);
+            }            
         }
 
         /// <summary>
@@ -74,7 +111,7 @@ namespace BiblioScraper.Services
         /// <param name="htmlDocument"></param>
         /// <param name="nextPageUrl"></param>
         /// <returns></returns>
-        public bool HasNextPage(HtmlDocument htmlDocument, out string nextPageUrl)
+        private bool HasNextPage(HtmlDocument htmlDocument, out string nextPageUrl)
         {
             nextPageUrl = null;
 
@@ -101,6 +138,30 @@ namespace BiblioScraper.Services
             }
 
             return baseUrl + nextPageUrl;
+        }
+
+        private void EnsureOutputExists(string outputPath)
+        {
+            if (!Directory.Exists(outputPath))
+            {
+                // Directory doesn't exist, so create it
+                Directory.CreateDirectory(outputPath);
+            }
+        }
+
+        private async Task SaveHtmlDocumentToFile(HtmlDocument htmlDocument, string filePath)
+        {
+            using (var streamWriter = new StreamWriter(filePath))
+            {
+                try
+                {
+                    await streamWriter.WriteAsync(htmlDocument.DocumentNode.OuterHtml);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e.Message.ToString());
+                }
+            }
         }
     }
 }
