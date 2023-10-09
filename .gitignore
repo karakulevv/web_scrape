@@ -1,3 +1,4 @@
 .vs/
 BiblioScraper/bin/
-BiblioScraper/obj/Debug
+BiblioScraper/obj/Debug/
+BiblioScraper/OutputFiles/
