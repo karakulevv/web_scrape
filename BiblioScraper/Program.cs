@@ -31,6 +31,10 @@ namespace BiblioScraper
             //process 3
             Console.WriteLine("\nProcess 3/3 starting...");
             await scrapeService.SaveImagesInParallel(baseUrl, htmlDocuments, outputPath);
+
+            Console.WriteLine("\n\nRun completed. Press any key to exit...");
+            Console.WriteLine("==================================================");
+            Console.ReadKey();
         }
     }
 }
