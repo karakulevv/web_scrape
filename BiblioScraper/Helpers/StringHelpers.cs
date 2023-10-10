@@ -9,11 +9,10 @@ namespace BiblioScraper.Helpers
         /// </summary>
         /// <param name="htmlDocument"></param>
         /// <returns></returns>
-        public static string GenerateUniqueFileName(HtmlDocument htmlDocument)
+        public static string GenerateUniqueFileName(string currentPageText)
         {
-            var currentPageElement = htmlDocument.DocumentNode.SelectSingleNode("//li[@class='current']");
-            var currentPageText = currentPageElement.InnerText.Trim().Split(" ");
-            int.TryParse(currentPageText[1], out int currentPage);
+            var textArray = currentPageText.Trim().Split(" ");
+            int.TryParse(textArray[1], out int currentPage);
 
             return String.Concat("Page-", currentPage, ".html");
         }

@@ -81,7 +81,8 @@ namespace BiblioScraper.Services
 
                         try
                         {
-                            string fileName = StringHelpers.GenerateUniqueFileName(page);
+                            var innerText = page.DocumentNode.SelectSingleNode("//li[@class='current']").InnerText;
+                            string fileName = StringHelpers.GenerateUniqueFileName(innerText);
                             string filePath = Path.Combine(outputPath, fileName);
 
                             await SaveContentToFileAsync(page.DocumentNode.OuterHtml, filePath);
@@ -190,7 +191,7 @@ namespace BiblioScraper.Services
                                     taskPool.Release();
                                 }
                             }));
-                        }                        
+                        }
                     }
                     await Task.WhenAll(tasks);
                 }
