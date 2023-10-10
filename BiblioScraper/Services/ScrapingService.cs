@@ -1,6 +1,7 @@
 ﻿using BiblioScraper.Helpers;
 using BiblioScraper.Services.Interfaces;
 using HtmlAgilityPack;
+using System.Diagnostics;
 
 namespace BiblioScraper.Services
 {
@@ -21,6 +22,9 @@ namespace BiblioScraper.Services
         /// <param name="htmlDocuments"></param>
         public async Task ReadPagesAsync(string baseUrl, int currentPage, List<HtmlDocument> htmlDocuments, string nextPageUrl = null)
         {
+            Console.WriteLine("==================================================");
+            Console.WriteLine("==================Scraping Pages==================");
+            Console.WriteLine($"Reading page: {currentPage}...");
             try
             {
                 var fullUrl = StringHelpers.GetUrl(baseUrl, nextPageUrl);
@@ -32,13 +36,20 @@ namespace BiblioScraper.Services
                 htmlDocuments.Add(htmlDocument);
                 if (HasNextPage(htmlDocument, out nextPageUrl))
                 {
+                    Console.CursorTop = Console.CursorTop - 1;
+                    Console.WriteLine(new string(' ', Console.WindowWidth));
+                    Console.CursorTop = Console.CursorTop - 2;
+                    Console.WriteLine(new string(' ', Console.WindowWidth));
+                    Console.CursorTop = Console.CursorTop - 2;
+                    Console.WriteLine(new string(' ', Console.WindowWidth));
+                    Console.CursorTop = Console.CursorTop - 1;
                     currentPage++;
                     await ReadPagesAsync(baseUrl, currentPage, htmlDocuments, nextPageUrl);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Exception occurred during page scraping.\n", ex);
+                Console.WriteLine($"Exception occurred during scraping of page {currentPage}.\n", ex);
             }
         }
 
@@ -48,12 +59,19 @@ namespace BiblioScraper.Services
         /// <param name="htmlDocuments"></param>
         public async Task SaveHtmlInParallel(List<HtmlDocument> htmlDocuments, string outputPath)
         {
+            Console.WriteLine("==================================================");
+            Console.WriteLine("===================Saving Pages===================");
             EnsureOutputExists(outputPath);
 
             try
             {
                 using var taskPool = new SemaphoreSlim(5); //5 parallel tasks
                 var tasks = new List<Task>();
+                int completedCount = 0;
+                int failedCount = 0;
+                object lockObject = new object();
+                var stopwatch = Stopwatch.StartNew();
+                Console.WriteLine($"Completed: 0 / {htmlDocuments.Count}. Failed: 0 | Est time left: hh:mm:ss");
 
                 foreach (var page in htmlDocuments)
                 {
@@ -67,19 +85,37 @@ namespace BiblioScraper.Services
                             string filePath = Path.Combine(outputPath, fileName);
 
                             await SaveContentToFileAsync(page.DocumentNode.OuterHtml, filePath);
+                            completedCount++;
                         }
                         catch (Exception ex)
                         {
+                            failedCount++;
                             Console.WriteLine(ex.Message);
                         }
                         finally
                         {
+                            var elapsedTime = (int)(stopwatch.ElapsedMilliseconds);
+                            var timeRemaining = (elapsedTime / completedCount) * (htmlDocuments.Count - completedCount);
+                            var time = TimeSpan.FromMilliseconds(timeRemaining);
+
+                            lock (lockObject)
+                            {
+                                Console.CursorTop = Console.CursorTop - 1;
+                                Console.WriteLine(new string(' ', Console.WindowWidth));
+                                Console.CursorTop = Console.CursorTop - 1;
+                                Console.WriteLine($"Completed: {completedCount} / {htmlDocuments.Count}. Failed: {failedCount} | Est time left: {time.ToString(@"hh\:mm\:ss")}");
+                            }
                             taskPool.Release();
                         }
                     }));
                 }
 
                 await Task.WhenAll(tasks);
+
+                stopwatch.Stop();
+
+                var time = TimeSpan.FromMilliseconds(stopwatch.ElapsedMilliseconds);
+                Console.WriteLine($"Time taken: {time.ToString(@"hh\:mm\:ss")}");
             }
             catch (Exception ex)
             {
@@ -97,15 +133,24 @@ namespace BiblioScraper.Services
         /// <returns></returns>
         public async Task SaveImagesInParallel(string baseUrl, List<HtmlDocument> htmlDocuments, string outputPath)
         {
+            Console.WriteLine("==================================================");
+            Console.WriteLine("================Downloading images================");
             EnsureOutputExists(outputPath);
 
             try
             {
                 using var taskPool = new SemaphoreSlim(5);
                 var tasks = new List<Task>();
+                int completedCount = 0;
+                int failedCount = 0;
+                int pageCount = 0;
+                object lockObject = new object();
+                var stopwatch = Stopwatch.StartNew();
+                Console.WriteLine($"Downloading images... Completed: 0 | Failed: 0 | Scraping page: {pageCount} | Total pages {htmlDocuments.Count}.");
 
                 foreach (var htmlDocument in htmlDocuments)
                 {
+                    ++pageCount;
                     var imageNodes = htmlDocument.DocumentNode.SelectNodes("//img[@src]");
                     if (imageNodes != null)
                     {
@@ -125,18 +170,27 @@ namespace BiblioScraper.Services
 
                                         var imageBytes = await _httpClient.GetByteArrayAsync(fullPath);
                                         await SaveContentToFileAsync(imageBytes, imageFilePath);
+                                        completedCount++;
                                     }
                                 }
                                 catch (Exception ex)
                                 {
+                                    failedCount++;
                                     Console.WriteLine(ex.Message);
                                 }
                                 finally
                                 {
+                                    lock (lockObject)
+                                    {
+                                        Console.CursorTop = Console.CursorTop - 1;
+                                        Console.WriteLine(new string(' ', Console.WindowWidth));
+                                        Console.CursorTop = Console.CursorTop - 1;
+                                        Console.WriteLine($"Downloading images... Completed: {completedCount} | Failed: {failedCount} | Scraping page: {pageCount} | Total pages {htmlDocuments.Count}.");
+                                    }
                                     taskPool.Release();
                                 }
                             }));
-                        }
+                        }                        
                     }
                     await Task.WhenAll(tasks);
                 }
